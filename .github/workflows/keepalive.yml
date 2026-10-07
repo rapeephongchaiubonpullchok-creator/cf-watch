@@ -1,0 +1,25 @@
+# GitHub turns off scheduled workflows after 60 days without repo activity, and nothing else
+# commits here, so touch one file a day.
+name: keepalive
+
+on:
+  schedule:
+    - cron: "17 3 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  touch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v5
+      - run: |
+          git config user.name  "cf-watch keepalive"
+          git config user.email "keepalive@users.noreply.github.com"
+          date -u '+%Y-%m-%dT%H:%M:%SZ' > .github/heartbeat
+          git add .github/heartbeat
+          git commit -qm "keepalive $(date -u '+%Y-%m-%d')"
+          git push

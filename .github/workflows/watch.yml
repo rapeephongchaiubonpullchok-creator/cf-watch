@@ -1,0 +1,74 @@
+# Watcher: one long job (5 h 45 min) that exits by itself, kept going by two guards.
+#
+# The real guard is a run waiting in the queue: the concurrency group never cancels the running
+# job, so a new run sits pending and starts the moment the current one ends or dies. cron alone
+# leaves the queue empty for hours (freelance-market measured a median of 127 min), so each job
+# also queues its successor after surviving 10 minutes. Waiting first means a job that breaks at
+# start-up (bad key) does not wake an equally broken successor in a tight loop; cron recovers it.
+#
+# The repo is public (Actions minutes are free only on public repos), so the log must never show
+# bid text or the ntfy topic. Both the topic and the Qwen settings are secrets and get masked.
+name: watch
+
+on:
+  schedule:
+    - cron: "7,27,47 * * * *"
+  workflow_dispatch:
+    inputs:
+      seconds:
+        description: "seconds before the watcher exits (20700 = 5 h 45 min)"
+        default: "20700"
+
+concurrency:
+  group: watch
+  cancel-in-progress: false   # never let the guard kill the running watcher
+
+permissions:
+  contents: read
+  actions: write              # queue the next run
+
+jobs:
+  watch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 355
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: restore the list of listings already handled
+        uses: actions/cache/restore@v4
+        with:
+          path: state/seen.json
+          key: seen-${{ github.run_id }}
+          restore-keys: seen-
+
+      - name: queue the next run once this one has survived 10 minutes
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          (sleep 600
+           if pgrep -f watch.py >/dev/null; then
+             gh workflow run watch.yml --repo "$GITHUB_REPOSITORY" --ref "$GITHUB_REF_NAME" \
+               || touch "$RUNNER_TEMP/chain-failed"
+           fi) > /dev/null 2>&1 &
+
+      - name: watch
+        env:
+          FM_CLAUDE_BASE: ${{ secrets.FM_CLAUDE_BASE }}
+          FM_CLAUDE_KEY: ${{ secrets.FM_CLAUDE_KEY }}
+          FM_CLAUDE_MODEL: ${{ secrets.FM_CLAUDE_MODEL }}
+          NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
+        run: python3 watch.py --state state --max-seconds "${{ inputs.seconds || 20700 }}"
+
+      - name: save the list for the next run
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: state/seen.json
+          key: seen-${{ github.run_id }}
+
+      - name: did queueing the next run fail
+        if: always()
+        run: |
+          if [ -f "$RUNNER_TEMP/chain-failed" ]; then
+            echo "::error::could not queue the next run; only cron is guarding now"; exit 1
+          fi
