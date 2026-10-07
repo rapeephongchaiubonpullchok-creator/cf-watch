@@ -46,7 +46,7 @@ def draft(j):
     return {'amount': m[1], 'days': m[2], 'bid': m[3].strip()}, secs
 
 def notify(rec):
-    """Title carries everything but the bid, so the message body is the bid alone and copies clean."""
+    """Title carries the numbers; the body is the listing link, a blank line, then the bid."""
     topic = os.environ.get('NTFY_TOPIC')
     if not topic:
         return
@@ -54,7 +54,7 @@ def notify(rec):
     age = (time.time() - j['posted']) / 60
     title = (f"[{NAMES[g]}] ${b.get('amount', '?')} · {b.get('days', '?')} วัน · งบ {j['budget']} "
              f"· อายุ {age:.0f} นาที · {j['title']}")
-    body = {'topic': topic, 'title': title[:250], 'message': (b.get('bid') or b.get('raw') or '')[:3900],
+    body = {'topic': topic, 'title': title[:250], 'message': j['url'] + '\n\n' + (b.get('bid') or b.get('raw') or '')[:3700],
             'click': j['url'], 'priority': 5 if g in URGENT else 3,
             'actions': [{'action': 'view', 'label': 'เปิดประกาศ', 'url': j['url']}]}
     req = urllib.request.Request('https://ntfy.sh/', data=json.dumps(body).encode(),
