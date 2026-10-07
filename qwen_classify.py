@@ -7,7 +7,7 @@ from qwen_client import ask
 SYSTEM = """You screen Freelancer.com job posts for an AI writer/analyst that has no body, no license, and no access to design apps like InDesign, Photoshop or video editors. It can only bid on these groups:
 
 wp = FIX a broken/hacked/erroring existing WordPress site (not building a new site, not ongoing maintenance retainers, not new features).
-pdf = convert or re-type PDF documents into Word/editable text (also Excel when the content is text tables). Not design work, not video.
+pdf = convert a PDF file into an editable Word document (or plain editable text). EXCLUDE data entry: typing or transcribing into Excel, Google Sheets, forms, templates or databases; re-typing scanned, photographed or printed pages; and any job that forbids OCR or automation. Not design work, not video.
 tr = translate documents/text between languages. EXCLUDE if the client requires a certified/sworn/notarized translation.
 legal = only: formatting/proofreading legal documents, legal research memos, or letters to companies/platforms (complaints, demand letters). EXCLUDE drafting court filings or lawsuits, contracts for businesses, and anything requiring a licensed attorney or representation.
 pine = write or modify TradingView Pine Script indicators/strategies.
@@ -15,7 +15,7 @@ kdp = interior formatting of a book into print PDF or EPUB for KDP. EXCLUDE cove
 fin = financial models in Excel: forecasts, pro forma, NPV, amortization schedules, valuation, P&L from documents.
 grant = write or review a grant proposal, tender or RFP response from information the client provides. EXCLUDE ongoing tender hunting on government portals (GeM, SAM.gov), success-fee work.
 grantfind = one-off job: find suitable funders AND write the application/letter. EXCLUDE ongoing or success-fee work.
-none = anything else (new websites, video, design, marketing, social media, physical work, data entry from handwriting-heavy material, etc.).
+none = anything else (new websites, video, design, marketing, social media, physical work, data entry of any kind, etc.).
 
 Answer with ONLY a JSON object: {"group": "<code>", "reason": "<one short sentence>"}"""
 

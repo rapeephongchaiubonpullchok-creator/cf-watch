@@ -17,6 +17,7 @@ FEED = ('https://www.freelancer.com/api/projects/0.1/projects/active/'
 POLL = 30              # seconds between feed reads; 50 listings cover about an hour
 FRESH = 15 * 60        # with no saved state, only handle listings younger than this
 QWEN_DEAD = 10         # this many Qwen failures in a row -> exit red so GitHub emails
+TRIES = 3              # give up on one listing after this many failed attempts
 FEED_DEAD = 30 * 60    # feed failing this long -> exit red
 NAMES = {'wp': 'แก้ WordPress', 'pdf': 'PDF เป็น Word', 'tr': 'แปล', 'legal': 'กฎหมาย', 'pine': 'Pine Script',
          'kdp': 'จัดหน้าหนังสือ', 'fin': 'โมเดลการเงิน', 'grant': 'ขอทุน/tender', 'grantfind': 'หาแหล่งทุน'}
@@ -72,6 +73,7 @@ class Watch:
         self.sf = os.path.join(state, 'seen.json')
         self.seen = set(json.load(open(self.sf))) if os.path.exists(self.sf) else set()
         self.qwen_fails = 0
+        self.tries = {}
 
     def handle(self, p):
         """True when the listing is done with; False to retry it on the next poll."""
@@ -80,6 +82,8 @@ class Watch:
             text, _, secs, _ = ask(prompt(j), system=CLASSIFY, max_tokens=2000)
             c = parse(text)
             g = c.get('group')
+            if g == 'PARSE_ERROR':   # ~1 in 5 on some posts; a second ask usually reads fine
+                raise ValueError('unreadable answer')
             if g not in NAMES:
                 print(f"{time.strftime('%H:%M:%S')} {j['id']} {g} {secs:.1f}s", flush=True)
                 self.qwen_fails = 0
@@ -87,8 +91,9 @@ class Watch:
             b, bsecs = draft(j)
         except Exception as e:
             self.qwen_fails += 1
+            self.tries[j['id']] = self.tries.get(j['id'], 0) + 1
             print(f"  qwen error #{self.qwen_fails} on {j['id']}: {type(e).__name__}", flush=True)
-            return False
+            return self.tries[j['id']] >= TRIES
         self.qwen_fails = 0
         rec = {'at': int(time.time()), 'group': g, 'reason': c.get('reason', ''), 'job': j, 'draft': b,
                'secs': bsecs}
